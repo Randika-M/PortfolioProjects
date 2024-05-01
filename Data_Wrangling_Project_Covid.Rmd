@@ -1,0 +1,465 @@
+  
+## Setup 
+
+Insert and load the packages you need to produce the report here:
+```{r}
+# This is a chunk where you can load the packages required for producing the report
+library(dplyr)
+library(tidyr)
+library(countrycode)
+library(magrittr) 
+library(stringr)
+library(countrycode)
+library(ggplot2)
+library(lubridate)
+library(knitr)
+library(deducorrect) 
+library(deductive)
+library(validate)
+library(Hmisc)
+
+
+```
+
+
+## *Step 1: Data Description* 
+
+This project uses two real-world datasets to analyse COVID-19 cases, fatalities, and vaccination efforts. The initial data set incluedes information on cases and death counts, while the secondary dataset contains vaccination data. The first raw dataset consists of ten numerical variables and two categorical variables regarding cases and deaths.  The secondary raw dataset consistes of twelve numerical variables and four categorical variables about vaccination. These datasets were sourced from the World Health Organization (WHO) and are available for access through the following URL:
+*https://covid19.who.int/data*.
+
+#### Table :1 Description and the data types of the variables in data set 1 (WHO, 2023)
+
+| Variable Name                                            |  Data type    | Description                                                                                                  |
+|----------------------------------------------------------|---------|--------------------------------------------------------------------------------------------------------------|
+| Name                                                     | String  | Country                                                                                   |
+| WHO_region                                               | String  | WHO Region                                                                                                   |
+| Cases - cumulative total                                 | Integer | Cumulative confirmed cases.                                                         |
+| Cases - cumulative total per 100000 population           | Decimal | Cumulative confirmed cases per 100,000 population.                                 |
+| Cases - newly reported in last 7 days                   | Integer | New confirmed cases reported in the last 7 days. |
+| Cases - newly reported in last 7 days per 100000 population | Decimal | New confirmed cases in the last 7 days per 100,000 population.                                   |
+| Cases - newly reported in last 24 hours                 | Integer | New confirmed cases in the last 24 hours.  |
+| Deaths - cumulative total                               | Integer | Cumulative confirmed deaths.                                                       |
+| Deaths - cumulative total per 100000 population         | Decimal | Cumulative confirmed deaths per 100,000 population.                               |
+| Deaths - newly reported in last 7 days                 | Integer | New confirmed deaths reported in the last 7 days. |
+| Deaths - newly reported in last 7 days per 100000 population | Decimal | New confirmed deaths in the last 7 days per 100,000 population.                                   |
+| Deaths - newly reported in last 24 hours               | Integer | New confirmed deaths reported in the last 24 hours. |
+
+
+#### Table :2 Description and the data types of the variables in data set 2 (WHO, 2023)
+
+
+| Field Name                             | Type    | Description                                                                                                  |
+|----------------------------------------|---------|--------------------------------------------------------------------------------------------------------------|
+| COUNTRY                                | String  | Country, territory, area                                                                                    |
+| ISO3                                   | String  | ISO Alpha-3 country code                                                                                   |
+| WHO_REGION                             | String  | WHO regional offices                              |
+| DATA_SOURCE                            | String  | Indicates data source  |
+| DATE_UPDATED                           | Date    | Date of last update                                                                                        |
+| TOTAL_VACCINATIONS                     | Integer | Cumulative total vaccine doses administered                                                               |
+| PERSONS_VACCINATED_1PLUS_DOSE          | Decimal | Cumulative number of persons vaccinated with at least one dose                                             |
+| TOTAL_VACCINATIONS_PER100              | Integer | Cumulative total vaccine doses administered per 100 population                                             |
+| PERSONS_VACCINATED_1PLUS_DOSE_PER100   | Decimal | Cumulative persons vaccinated with at least one dose per 100 population                                   |
+| PERSONS_LAST_DOSE                      | Integer | Cumulative number of persons vaccinated with a complete primary series                                    |
+| PERSONS_LAST_DOSE_PER100               | Decimal | Cumulative number of persons vaccinated with a complete primary series per 100 population                 |
+| VACCINES_USED                          | String  | Combined short name of vaccine                                    |
+| FIRST_VACCINE_DATE                     | Date    | Date of first vaccinations. Equivalent to start/launch date of the first vaccine administered in a country.|
+| NUMBER_VACCINES_TYPES_USED             | Integer | Number of vaccine types used per country                                                |
+| PERSONS_BOOSTER_ADD_DOSE               | Integer | Cumulative number of persons vaccinated with at least one booster or additional dose                      |
+| PERSONS_BOOSTER_ADD_DOSE_PER100        | Decimal | Cumulative number of persons vaccinated with at least one booster or additional dose per 100 population    |
+
+
+## *Step 2: Merge the data sets using R)* 
+
+The next step involves merging the two data sets to create one data set. Firstly, the code read the data from "WHO_covid.csv" file. The initial rows are skipped when reading the "WHO_covid.csv" file into the "covid_data" data frame to avoid the mismatch of the variable(column) names. Variable names are then assigned to the "covid_data" frame seperately in the next code. Next, the Covid vaccination data is read from "WHO_vaccination.csv" file. Then the covid_data and vaccination_data are merged with the left join function using the 'Country' variable which is the common variabe in both data sets. Covid data is central to the statistcal analysis of this project. Therefore, it is important to keep all the observations in covid data set. Left join function ensures that the observations of the covid data set is not lost and some of observations could be lost when vaccination data is not available for some countries if other joint types are used to merge these data sets. Therefore, the left join function is appropriate in this circumstance. The other task performed in this step are listed below.
+
+* Column names in the merged data frame are converted to a consistent naming convention using underscores instead of spaces and dashes.
+* Rename the 'name' variable as 'Country_name' for clarity.
+* Examine the data structure of the data frame using 'str' function. 
+
+```{r}
+covid_data <- read.csv("WHO_covid.csv", skip = 2) # Read the data of the WHO_covid.csv and skip the first few rows to get to the header
+
+# Assign the correct variable names to the columns
+colnames(covid_data) <- c("Name", "WHO_Region", "Cases_cumulative_total", "Cases_cumulative_total_per_100000_population", "Cases - newly reported in last 7 days",	"Cases - newly reported in last 7 days per 100000 population",	"Cases - newly reported in last 24 hours", "Deaths - cumulative total",	"Deaths - cumulative total per 100000 population",	"Deaths - newly reported in last 7 days",	"Deaths - newly reported in last 7 days per 100000 population",	"Deaths - newly reported in last 24 hours"
+)
+
+head(covid_data)
+
+vaccination_data <- read.csv("WHO_vaccination.csv") # Read data of the WHO_vaccination.csv file
+head(vaccination_data)
+
+# Merge the data sets (covid_data & vaccination_data)
+merged_data <- covid_data %>%
+  left_join(vaccination_data, by = c("Name" = "COUNTRY")) 
+
+# Convert variable names to snake case without dashes
+new_column_names <- colnames(merged_data)
+new_column_names <- gsub("[- ]+", "_", new_column_names) # Replace dashes and spaces with a single underscore
+
+# Change variable names
+colnames(merged_data) <- new_column_names
+
+# Rename the "Name" variable as "Country name"
+colnames(merged_data)[colnames(merged_data) == "Name"] <- "Country_name"
+
+colnames(merged_data)[colnames(merged_data) == "DATE_UPDATED"] <- "VCCINATED_DATE_UPDATED" # change the data to DATE_UPDATED(Vacciantions to ensure date is corresponding to vacciations data
+
+
+head(merged_data)
+
+merged_data %>% names() # Check the names of the Merged data set. 
+  
+
+```
+```{r}
+str(merged_data) # Check the structure of the merged data set. 
+```
+
+
+
+#### *Data reduction of the merged data set* 
+
+After merging the data sets, a following additional tasks are performed before starting the next step.
+
+* A copy of the merged_data data frame is created and assigned to merged_data_2 which allows for modification without making changes to the original data frame. 
+* Reorder the columns of the merged_data_2 by moving the "VCCINATED_DATE_UPDATED" column to the front.
+* Remove the unwanted variables from the data set. This step is taken to reduce the risk of over fitting and to remove the redundant variables. For example, ISO3 is represents the country   variable and the DATA_SOURCE is not required for the purpose of this statistical analysis.
+* Change the data type of the 'date' variable to date data type. 
+* Change the data types of the "WHO_Region" and "Country_name" columns from character data type to factor type. 
+* Check the data structure of the merged_data_2 to ensure the data type conversion is successful. 
+
+
+```{r}
+merged_data_2 <- merged_data # Making a copy of merged_data_2
+
+merged_data_2 <- merged_data_2[, c("VCCINATED_DATE_UPDATED", setdiff(names(merged_data_2), "VCCINATED_DATE_UPDATED"))] #  Reorder the data frame by moving the date to the front
+
+# Remove unwanted variables
+
+# List of columns to remove
+columns_to_remove <- c("ISO3", "WHO_REGION", "DATA_SOURCE", "VACCINES_USED", "FIRST_VACCINE_DATE", "NUMBER_VACCINES_TYPES_USED")
+
+# Remove unwanted variables
+merged_data_2 <- merged_data_2[, !(names(merged_data_2) %in% columns_to_remove)]
+
+merged_data_2 %>% names()
+
+
+# List of columns to remove
+columns_to_remove <- c(
+  "Cases_cumulative_total_per_100000_population",
+  "Cases_newly_reported_in_last_7_days_per_100000_population",
+  "Deaths_cumulative_total_per_100000_population",
+  "Deaths_newly_reported_in_last_7_days_per_100000_population",
+  "TOTAL_VACCINATIONS_PER100",
+  "PERSONS_LAST_DOSE_PER100",
+  "PERSONS_BOOSTER_ADD_DOSE_PER100",
+  "PERSONS_VACCINATED_1PLUS_DOSE_PER100",
+  "Cases_newly_reported_in_last_24_hours",
+  "Deaths_newly_reported_in_last_24_hours"
+)
+
+# Remove unwanted variables
+merged_data_2 <- merged_data_2[, !names(merged_data_2) %in% columns_to_remove]
+
+# Change the data types 
+merged_data_2 <- merged_data_2 %>%
+  mutate(VCCINATED_DATE_UPDATED = as.Date(VCCINATED_DATE_UPDATED, format = "%Y-%m-%d")) # Change the variable type from factor to date.
+
+merged_data_2 <- merged_data_2 %>%
+  mutate(WHO_Region = as.factor(WHO_Region),
+         Country_name = as.factor(Country_name)) # Change the data type from character to factor. 
+
+str(merged_data_2) # check the structure of the merged data frame 2 
+
+
+
+
+```
+
+
+## *Step 3: Tidy the data*
+
+In this step, the data set is examined to ensure that the data follows the tidy data principles. Tidy data principle suggests that each variable should have its own column.  "PERSONS_VACCINATED_1PLUS_DOSE", "PERSONS_LAST_DOSE, PERSONS_BOOSTER_ADD_DOS" represent the different types of vaccine doses. According to the tidy data principle, they should in a single column. However, these vaccine types are in multiple columns in the original data set and the values in these columns represent the number of people who received each dose type. Therefore, pivot longer function is used to reshape the data frame to have a separate column for the type of dose and another column for the count of people who received each vaccine type. Moreover,the variable names in the merged_data_3 are renamed for for clarity and better readability. Finally, the values of the Number_Of_Doses variable are renamed, ordered and convert to factor variables. 
+
+
+```{r}
+merged_data_3 <- merged_data_2 # save the merged_data_2 variable in mergered_data_3
+
+# Store the column names in a vector
+variable_pivot <- c("PERSONS_VACCINATED_1PLUS_DOSE", "PERSONS_LAST_DOSE", "PERSONS_BOOSTER_ADD_DOSE")
+
+# Pivot the number of doses longer. 
+merged_data_3 %<>%
+  pivot_longer(
+    cols = all_of(variable_pivot),
+    names_to = "NO_OF_DOSE_PP",
+    values_to = "NO_OF_PEOPLE_RECEIVED_VACCINATION"
+  ) 
+
+# Order the NO_OF_DOSE_PP based on the number of doses a person has received. 
+merged_data_3 <- merged_data_3 %>%
+  mutate(NO_OF_DOSE_PP = factor(NO_OF_DOSE_PP,
+                                levels = c("PERSONS_VACCINATED_1PLUS_DOSE",
+                                           "PERSONS_LAST_DOSE",
+                                           "PERSONS_BOOSTER_ADD_DOSE")))
+
+
+# split the date base on the tidy data principle
+merged_data_4 <- merged_data_3  # Save the merged data 3 file as merged data 4 
+
+merged_data_4
+
+variable_names <- names(merged_data_4)
+print(variable_names)
+
+# Change the variable names of the data set 
+
+# Rename the variables with shorter names 
+merged_data_4 <- merged_data_4 %>%
+  rename(
+    Year_vax_updated = VCCINATED_DATE_UPDATED,
+    Country = Country_name,
+    WHO_Region = WHO_Region,
+    Cases_total = Cases_cumulative_total,
+    Cases_7d = Cases_newly_reported_in_last_7_days,
+    Deaths_total = Deaths_cumulative_total,
+    Deaths_7d = Deaths_newly_reported_in_last_7_days,
+    Total_Vax = TOTAL_VACCINATIONS,
+    Number_Of_Doses = NO_OF_DOSE_PP,
+    People_Dosed_Count = NO_OF_PEOPLE_RECEIVED_VACCINATION)
+    
+ # Rename the Dose_PP 
+merged_data_4 <- merged_data_4 %>%
+  mutate(Number_Of_Doses = case_when(
+    Number_Of_Doses == "PERSONS_VACCINATED_1PLUS_DOSE" ~ "1+ Dose",
+    Number_Of_Doses == "PERSONS_LAST_DOSE" ~ "Last Dose",
+    Number_Of_Doses == "PERSONS_BOOSTER_ADD_DOSE" ~ "Booster+",
+    TRUE ~ Number_Of_Doses
+  ))  %>%
+  mutate(Number_Of_Doses = factor(Number_Of_Doses))
+
+head(merged_data_4)
+
+```
+
+
+## *Step 4: Create new variables from the existing variables* 
+
+In this step, a new variables is created using the existing variables in the data set.The Death_Per_Vax_Percentage shows the percentage of deaths relative to the total vaccinated population in each country. This could provide an understanding of the relationship between the effectiveness of the Covid vaccination and the morality rates in each country this can also be compared across the countries.  
+
+```{r}
+# Mutate Percent_People_Dose_count is created by dividing the people dose count in each country by dividing the total number of vaccination. This tells percentage of people who had different number of does out of total vaccinated people. 
+
+merged_data_5 <- merged_data_4
+
+# Create a another new variable as Death_Per_VAX_Percentage. 
+merged_data_5 <- merged_data_5 %>%
+  mutate(Death_Per_Vax_Percentage = round((Deaths_total / Total_Vax) * 100, 3))
+
+# View the updated data frame
+print(merged_data_5)
+
+
+
+```
+
+
+
+## *Step 5: Scan the variables for missing values and inconsistencies* 
+
+
+This analysis aims to analyse the relationship between vaccination, case numbers and deaths. The observation that don't have vaccine data are not useful for this analysis and those variables are excluded from the data set. Imputation of the missing values with another values such as mean or median is not appropriate as there is not sufficient data available related to those observations and these data involve a geographic component which makes it difficult to calculate averages accurately. This step involves identifying, inspecting, and handling missing values in the data set while creating missing value free data frame. In this step, following tasks are performed.
+
+* Detect missing values in the merged_data_5 dataframe using the is.na() function and summarise them by columns in a table. 
+* Filter rows with missing values in the "Year_vax_updated" column and examine them.
+* Filter rows with missing values in the "Total_Vax" column and examine those rows. 
+* Create the clean_data_1 data frame and exclude the missing values in the "Total_Vax" column.
+* Checking for Missing Values in clean_data_1.
+* Filter rows with missing values in the "People_Dosed_Count" column and inspect them for missing values. 
+* Create clean_data_2 data frame and exclude the missing values People_Dosed_Count. 
+* Scan the missing values of clean_data_2 to ensure that that the clean_data_2 data frame does not contain any missing values. 
+
+```{r}
+# Check for missing values in the entire dataset
+missing_values <- is.na(merged_data_5)
+
+# Summarize missing values by column
+col_missing <- colSums(missing_values)
+
+# Print the number of missing values in merged_data_5. 
+print(kable(col_missing, 
+            format = "html",
+            table.attr = 'style="background-color: #f5f5f5; border-collapse: collapse; width: 100%;"',
+            th.attr = 'style="background-color: #d3d3d3; padding: 8px; text-align: left;"',
+            td.attr = 'style="padding: 8px; text-align: left;"'))
+
+# Examine the missing values of Year_vax_updated
+na_rows_date_updated<- merged_data_5 %>%
+  filter(is.na(Year_vax_updated))
+
+# View the rows with NA values in the "Year_vax_updated" variable
+print(na_rows_date_updated)
+
+# Examine the missing data of Total_Vax
+na_rows_total_Vax <- merged_data_5 %>%
+  filter(is.na(Total_Vax))
+
+# View the rows with NA values in the "Total_Vax" variable
+print(na_rows_total_Vax)
+
+## Filter and remove the missing values from Total_Vax variable.
+
+merged_data_6 <- merged_data_5 # Store merged_data_5 in merged_data_6
+
+# Remove the rows based on the missing values of Total_Vax variable           '
+clean_data_1 <- merged_data_6 %>%
+  filter(!is.na(Total_Vax))
+
+# Check for missing values in the Clean_data_1
+missing_values_2 <- is.na(clean_data_1)
+
+# Summarize missing values by column
+col_missing_2 <- colSums(missing_values_2)
+
+# Print the number of missing values in merged_data_5. 
+print(kable(col_missing_2, 
+            format = "html",
+            table.attr = 'style="background-color: #f5f5f5; border-collapse: collapse; width: 100%;"',
+            th.attr = 'style="background-color: #d3d3d3; padding: 8px; text-align: left;"',
+            td.attr = 'style="padding: 8px; text-align: left;"'))
+
+# Check the missing values of the People_Dosed_count variable. 
+na_rows_dosed_count<- clean_data_1 %>%
+  filter(is.na(People_Dosed_Count))
+
+# View the rows with NA values in the "Country" variable
+print(na_rows_dosed_count)
+
+
+## Exclude the rows with missing values in People_Dosed_Count
+
+clean_data_2 <- clean_data_1 # Store clean_data_1 in clean_data_2
+
+## Remove the missing values in People_Dosed_Count
+clean_data_2 <- clean_data_2 %>%  
+  filter(!is.na(People_Dosed_Count)) 
+
+# Check for missing values in the Clean_data_1
+missing_values_3 <- is.na(clean_data_2)
+
+# Summarize missing values by column
+col_missing_3 <- colSums(missing_values_3)
+
+# Print the number of missing values in merged_data_5. 
+print(kable(col_missing_3, 
+            format = "html",
+            table.attr = 'style="background-color: #f5f5f5; border-collapse: collapse; width: 100%;"',
+            th.attr = 'style="background-color: #d3d3d3; padding: 8px; text-align: left;"',
+            td.attr = 'style="padding: 8px; text-align: left;"'))
+
+print(kable(head(clean_data_2)))
+
+```
+
+## *Step 6: Scan numeric variables for outliers*
+
+This projects involves statistical analysis related to analyse the effect of covid vaccine, it is important to scan for outliers. As the initial step of checking the outliers of the variables in this data set, distribution of the variables are checked using the histograms which can be found in appendix 1. According to the histograms of those variables, non of the numerical variable shows a normal distribution. Thus, parametric tests are not appropriate to detect outliers of the numerical variables in this data set. A non-parametric box plots method is considered to be appropriate as this method is known as distribution free. As these numerical values involve a geographical component, some data point have skewed to the right resulting outliers. When the numerical values in this data set are randomly compared with the other sources such as the data published by the countries, it appears that those outliers are present due to natural variation of the observations and skewed distribution. There is not sufficient evident to conclude that they are not natural outliers. Therefore, these outlieres are retained in the data set and data transformation will be considered to handle those outliers in the next step. However, these numerical data will be scanned for outliers using box plots after the data transformation is complete.            
+
+
+```{r, fig.width=5, fig.height=3.5}
+clean_data_3 <- clean_data_2 # store clean data 2 in clean data 3 
+head(clean_data_3)
+
+boxplot(clean_data_2$Cases_total, main="Box Plot - Case total")
+
+boxplot(clean_data_2$Cases_7d, main="Box Plot - Cases_7d")
+
+boxplot(clean_data_2$Deaths_total, main="Box Plot - Deaths_total")
+
+boxplot(clean_data_2$Deaths_7d, main="Box Plot - Deaths_7d")
+
+boxplot(clean_data_2$Total_Vax, main="Box Plot - Total_Vax")
+
+boxplot(clean_data_2$People_Dosed_Count, main="Box Plot - People_Dosed_Count")
+
+boxplot(clean_data_2$Death_Per_Vax_Percentage, main="Box Plot - Death_Per_Vax_Percentage")
+
+
+# This is a chunk where you scan the numeric data for outliers 
+
+```
+
+
+## *Apply data transformation*  
+The final step on the project involves applying appropriate data transformation on selected numerical variables. Data transformation is crucial in data preprocessing because Some of the statistical test such as t-test, ANOVA & linear regression rely on the assumption of normality. Moreover, the outliers can impact the statistical analysis. For example, outliers can distort the result of regression model and provide wrong conclusion.Therefore, the primary objectives of this data transformation includes reducing skewness, minimising outliers, and achieving a more normal distribution of the variables. 
+
+Firstly all the variables are examined to find whether numerical variable include the zero values . This is an important step to perform before starting the data transformation as log transformation is not appropriate for variables which includes zero values. When zero values are present, square root transformation is applied for the data transformation. Except Total_Vax variable, all the other numerical variable contain zero values. Therefore, the log base 10 transformation is applied to Total_Vax variable and square root transformation is applied to Death_Per_Vax_Percentage. In addition, other transformations such as natural logarithmic transformation and reciprocal transformation were  tested on Total_Vax. However, log base 10 transformation appears to be a better transformation technique for the  Total_Vax variable. 
+
+As seen in appendix 1, both original Total_Vax variable have a left skewed distribution & Death_Per_Vax_Percentage, After applying the log transformation, the transformed Total_Vax variable demonstrates a more normal distribution compared to the original Total_Vax variable. In terms of outliers, the transformed Total_Vax variable only contains one outliers whereas the orginal Total_Vax variable contains multiple outliers. Therefore, the log transformation has significantly improved the Total_Vax variable. The transformed Death_Per_Vax_Percentage variable does not show a significant improvement in terms of normality compared to the original Death_Per_Vax_Percentage although the skewness has reduced compared to the original Death_Per_Vax_Percentage variable. However, the transformed Death_Per_Vax_Percentage shows significantly less outliers compared to the original Death_Per_Vax_Percentage. 
+
+```{r, fig.width=5, fig.height=3.5}
+
+# Count zero values in each column
+zero_counts <- colSums(clean_data_2 == 0, na.rm = TRUE)
+
+# Create a table with zero counts
+zero_counts_table <- data.frame(Column = colnames(clean_data_2), Zero_Count = zero_counts)
+
+# Print the table
+print(zero_counts_table)
+
+# Apply the data transformation, check post-transformation distribution & check post-transformation  outliers in Total_Vax
+log_total_vax <- log10(clean_data_3$Total_Vax)
+
+#Add the log_total_vax to the clean_data_3
+clean_data_3$log_total_vax <- log_total_vax
+
+hist(clean_data_3$log_total_vax, 
+     main = "Histogram of log Total_Vax", 
+     xlab = "log of Total_Vax")
+
+boxplot(clean_data_3$log_total_vax, main="Box Plot - Total_Vax")  
+
+# Apply the data transformation, check post-transformation distribution & check post-transformation for Death_Per_Vax_Percentage
+sqr_Death_Per_Vax <- sqrt(clean_data_3$Death_Per_Vax_Percentage)
+
+#Add the log_total_vax to the clean_data_3
+clean_data_3$sqr_Death_Per_Vax <- sqr_Death_Per_Vax
+
+hist(clean_data_3$sqr_Death_Per_Vax, 
+     main = "Histogram of Sqr_Death_Per_Vax", 
+     xlab = "Square Root of Death_Per_Vax")
+
+boxplot(clean_data_3$sqr_Death_Per_Vax, main="Box Plot - Sqr_Death_Per_Vax")  
+
+head(clean_data_3)
+
+```
+
+## *References* 
+
+World Health Organization.(2023),*WHO Coronavirus (COVID-19) Dashboard*, retrieved August 11, 2023 from the World Health Organization website :*https://covid19.who.int/data* 
+
+
+## *Appendices*
+
+#### *Appendix: 1* 
+```{r}
+hist(clean_data_2$Cases_total)
+hist(clean_data_2$Cases_7d)
+hist(clean_data_2$Deaths_total)
+hist(clean_data_2$Deaths_7d)
+hist(clean_data_2$Total_Vax)
+hist(clean_data_2$People_Dosed_Count)
+hist(clean_data_2$Death_Per_Vax_Percentage)
+
+qqnorm(clean_data_2$Death_Per_Vax_Percentage)
+qqline(clean_data_2$Death_Per_Vax_Percentage, col = "red")
+
+```
+
+
+
+<br>
+<br>
